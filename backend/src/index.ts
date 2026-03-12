@@ -29,8 +29,40 @@ wss.on('connection', async (clientWs: WebSocket) => {
   console.log('Client connected')
 
   let xfyun: XfyunASR | null = null
-  let savedText = ''   // Completed sentences
-  let lastText = ''    // Current sentence text
+
+  let finalText = ''
+  let currentPartial = ''
+
+  function normalizeText(s: string): string {
+    return (s || '').replace(/[。，！？、；：,.!?;:\s]/g, '')
+  }
+
+  function mergeFinalText(prevFinal: string, incoming: string): string {
+    const prevClean = normalizeText(prevFinal)
+    const incClean = normalizeText(incoming)
+
+    // 如果 incoming 本身已经包含了 prevFinal 的尾部延续，找最大重叠后拼接
+    let maxOverlap = 0
+    const maxLen = Math.min(prevClean.length, incClean.length)
+
+    for (let k = 1; k <= maxLen; k++) {
+      if (prevClean.slice(-k) === incClean.slice(0, k)) {
+        maxOverlap = k
+      }
+    }
+
+    // 把 clean overlap 映射回原文位置
+    let cutPos = 0
+    let cleanCount = 0
+    while (cutPos < incoming.length && cleanCount < maxOverlap) {
+      if (!/[。，！？、；：,.!?;:\s]/.test(incoming[cutPos])) {
+        cleanCount++
+      }
+      cutPos++
+    }
+
+    return prevFinal + incoming.slice(cutPos)
+  }
 
   if (hasXfyunConfig) {
     // Use real Xfyun API
@@ -44,42 +76,24 @@ wss.on('connection', async (clientWs: WebSocket) => {
     xfyun.onResult = (text, isFinal, segId) => {
       console.log('Segment', segId, ':', text, 'isFinal:', isFinal)
 
-      // Check if this is a continuation (text starts with beginning of lastText)
-      const checkLen = Math.min(5, lastText.length)
-      const isContinuation = lastText.length > 0 && text.startsWith(lastText.slice(0, checkLen))
+      if (!text) return
 
-      if (isContinuation) {
-        // Same sentence, just update
-        lastText = text
-      } else if (lastText.length > 0 && text.length > 0) {
-        // New sentence - check for overlap at boundary
-        // Strip punctuation from end of lastText for overlap detection
-        const lastTextClean = lastText.replace(/[。，！？、；：,.!?;:]+$/g, '')
-
-        let overlap = 0
-        // Check if newText starts with the ending of lastText (without punctuation)
-        for (let i = 1; i <= Math.min(lastTextClean.length, text.length, 15); i++) {
-          if (lastTextClean.endsWith(text.slice(0, i))) {
-            overlap = i
-          }
-        }
-
-        console.log('New sentence, overlap:', overlap, 'chars')
-
-        // Save previous sentence
-        savedText = savedText + lastText
-        // Remove overlap from new text
-        lastText = overlap > 0 ? text.slice(overlap) : text
+      if (isFinal) {
+        // final 时才真正并入最终文本
+        finalText = mergeFinalText(finalText, currentPartial || text)
+        currentPartial = ''
       } else {
-        lastText = text
+        // partial 只覆盖显示，不追加
+        currentPartial = text
       }
 
-      const fullTranscript = savedText + lastText
-      console.log('Full transcript:', fullTranscript)
+      const displayText = finalText + currentPartial
+
+      console.log('Display transcript:', displayText)
 
       clientWs.send(JSON.stringify({
         type: 'transcript',
-        text: fullTranscript,
+        text: displayText,
         isFinal
       }))
     }
