@@ -29,6 +29,8 @@ wss.on('connection', async (clientWs: WebSocket) => {
   console.log('Client connected')
 
   let xfyun: XfyunASR | null = null
+  let savedText = ''   // Completed sentences
+  let lastText = ''    // Current sentence text
 
   if (hasXfyunConfig) {
     // Use real Xfyun API
@@ -40,13 +42,26 @@ wss.on('connection', async (clientWs: WebSocket) => {
     })
 
     xfyun.onResult = (text, isFinal, segId) => {
-      // Xfyun returns cumulative text - each segment contains all previous text
-      // So we just use the latest text directly as the full transcript
       console.log('Segment', segId, ':', text, 'isFinal:', isFinal)
+
+      // Check if this is a new sentence (doesn't continue from lastText)
+      if (lastText.length > 0 && text.length > 0) {
+        const checkLen = Math.min(5, lastText.length)
+        if (!text.startsWith(lastText.slice(0, checkLen))) {
+          // New sentence detected - save previous sentence
+          savedText = savedText + lastText
+          console.log('New sentence detected, saved:', savedText)
+        }
+      }
+
+      lastText = text
+      const fullTranscript = savedText + text
+
+      console.log('Full transcript:', fullTranscript)
 
       clientWs.send(JSON.stringify({
         type: 'transcript',
-        text: text,
+        text: fullTranscript,
         isFinal
       }))
     }
