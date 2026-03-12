@@ -53,10 +53,13 @@ wss.on('connection', async (clientWs: WebSocket) => {
         lastText = text
       } else if (lastText.length > 0 && text.length > 0) {
         // New sentence - check for overlap at boundary
+        // Strip punctuation from end of lastText for overlap detection
+        const lastTextClean = lastText.replace(/[。，！？、；：,.!?;:]+$/g, '')
+
         let overlap = 0
-        // Check if newText starts with the ending of lastText
-        for (let i = 1; i <= Math.min(lastText.length, text.length, 15); i++) {
-          if (lastText.endsWith(text.slice(0, i))) {
+        // Check if newText starts with the ending of lastText (without punctuation)
+        for (let i = 1; i <= Math.min(lastTextClean.length, text.length, 15); i++) {
+          if (lastTextClean.endsWith(text.slice(0, i))) {
             overlap = i
           }
         }
