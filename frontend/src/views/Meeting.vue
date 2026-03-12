@@ -162,7 +162,7 @@ async function startRecording() {
   try {
     // Connect WebSocket first
     socket = new TranscribeSocket()
-    socket.onTranscript = (text, isFinal) => {
+    socket.onTranscript = (text, _isFinal) => {
       currentTranscript.value = text
     }
     await socket.connect()
