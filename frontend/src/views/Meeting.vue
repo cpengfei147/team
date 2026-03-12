@@ -238,7 +238,8 @@ async function generateSummary() {
   showLoadingToast({ message: '生成中...', duration: 0 })
 
   try {
-    const response = await fetch('http://localhost:3000/api/summarize', {
+    const apiBase = import.meta.env.VITE_API_URL || ''
+    const response = await fetch(`${apiBase}/api/summarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: fullText })

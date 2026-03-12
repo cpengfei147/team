@@ -6,8 +6,23 @@ export class TranscribeSocket {
   onError: ((error: Event) => void) | null = null
   onClose: (() => void) | null = null
 
-  constructor(url: string = 'ws://localhost:3000/ws/transcribe') {
-    this.url = url
+  constructor(url?: string) {
+    if (url) {
+      this.url = url
+    } else {
+      // Check for production API URL from environment
+      const apiUrl = import.meta.env.VITE_API_URL
+      if (apiUrl) {
+        // Production: use configured backend URL
+        const wsUrl = apiUrl.replace('https://', 'wss://').replace('http://', 'ws://')
+        this.url = `${wsUrl}/ws/transcribe`
+      } else {
+        // Development: use same host as page (proxied through Vite)
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const host = window.location.host
+        this.url = `${protocol}//${host}/ws/transcribe`
+      }
+    }
   }
 
   connect(): Promise<void> {
