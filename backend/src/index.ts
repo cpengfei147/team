@@ -29,9 +29,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
   console.log('Client connected')
 
   let xfyun: XfyunASR | null = null
-  let fullTranscript = ''    // Accumulated full transcript
-  let lastSegId = -1         // Track last segment ID
-  let lastSegText = ''       // Track last segment text
+  const segments = new Map<number, string>()  // Store each segment by ID
 
   if (hasXfyunConfig) {
     // Use real Xfyun API
@@ -43,22 +41,14 @@ wss.on('connection', async (clientWs: WebSocket) => {
     })
 
     xfyun.onResult = (text, isFinal, segId) => {
-      if (segId === lastSegId || text.startsWith(lastSegText.substring(0, 3))) {
-        // Same segment or continuation - replace the last segment's text
-        // Remove last segment text and add new text
-        if (lastSegText && fullTranscript.endsWith(lastSegText)) {
-          fullTranscript = fullTranscript.slice(0, -lastSegText.length) + text
-        } else {
-          fullTranscript += text
-        }
-      } else {
-        // New segment that's not a continuation - append
-        fullTranscript += text
-      }
+      // Store/update this segment's text
+      segments.set(segId, text)
 
-      lastSegId = segId
-      lastSegText = text
+      // Rebuild full transcript from all segments in order
+      const sortedSegIds = Array.from(segments.keys()).sort((a, b) => a - b)
+      const fullTranscript = sortedSegIds.map(id => segments.get(id)).join('')
 
+      console.log('Segment', segId, ':', text)
       console.log('Full transcript:', fullTranscript)
 
       clientWs.send(JSON.stringify({
