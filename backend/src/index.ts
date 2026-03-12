@@ -44,19 +44,34 @@ wss.on('connection', async (clientWs: WebSocket) => {
     xfyun.onResult = (text, isFinal, segId) => {
       console.log('Segment', segId, ':', text, 'isFinal:', isFinal)
 
-      // Check if this is a new sentence (doesn't continue from lastText)
-      if (lastText.length > 0 && text.length > 0) {
-        const checkLen = Math.min(5, lastText.length)
-        if (!text.startsWith(lastText.slice(0, checkLen))) {
-          // New sentence detected - save previous sentence
-          savedText = savedText + lastText
-          console.log('New sentence detected, saved:', savedText)
+      // Check if this is a continuation (text starts with beginning of lastText)
+      const checkLen = Math.min(5, lastText.length)
+      const isContinuation = lastText.length > 0 && text.startsWith(lastText.slice(0, checkLen))
+
+      if (isContinuation) {
+        // Same sentence, just update
+        lastText = text
+      } else if (lastText.length > 0 && text.length > 0) {
+        // New sentence - check for overlap at boundary
+        let overlap = 0
+        // Check if newText starts with the ending of lastText
+        for (let i = 1; i <= Math.min(lastText.length, text.length, 15); i++) {
+          if (lastText.endsWith(text.slice(0, i))) {
+            overlap = i
+          }
         }
+
+        console.log('New sentence, overlap:', overlap, 'chars')
+
+        // Save previous sentence
+        savedText = savedText + lastText
+        // Remove overlap from new text
+        lastText = overlap > 0 ? text.slice(overlap) : text
+      } else {
+        lastText = text
       }
 
-      lastText = text
-      const fullTranscript = savedText + text
-
+      const fullTranscript = savedText + lastText
       console.log('Full transcript:', fullTranscript)
 
       clientWs.send(JSON.stringify({
