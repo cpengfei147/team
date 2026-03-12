@@ -47,15 +47,16 @@ export class XfyunASR {
     baseUrl = baseUrl.replace(/\/$/, '')
     const path = '/ast/communicate/v1'
 
-    // Generate UTC timestamp in format: 2025-09-04T15:38:07+0800
+    // Generate Beijing time timestamp in format: 2025-09-04T15:38:07+0800
+    // Must use actual Beijing time (UTC+8), not server local time
     const now = new Date()
-    // Get Beijing time components
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-    const hours = String(now.getHours()).padStart(2, '0')
-    const minutes = String(now.getMinutes()).padStart(2, '0')
-    const seconds = String(now.getSeconds()).padStart(2, '0')
+    const beijingTime = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60 * 1000)
+    const year = beijingTime.getFullYear()
+    const month = String(beijingTime.getMonth() + 1).padStart(2, '0')
+    const day = String(beijingTime.getDate()).padStart(2, '0')
+    const hours = String(beijingTime.getHours()).padStart(2, '0')
+    const minutes = String(beijingTime.getMinutes()).padStart(2, '0')
+    const seconds = String(beijingTime.getSeconds()).padStart(2, '0')
     const utc = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+0800`
 
     console.log('UTC timestamp:', utc)
